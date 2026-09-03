@@ -36,3 +36,33 @@ export async function makeStore (entries: Array<[string, Uint8Array]>): Promise<
   await db.close()
   return path
 }
+
+export interface MetadataSpec {
+  clientTagHash?: string
+  serverId?: string
+  sequence?: number
+  acked?: number
+  specificsHash?: string
+}
+
+/**
+ * sync_pb::EntityMetadata, shaped like the records a live Chrome store holds:
+ * 1 client_tag_hash, 2 server_id, 3 is_deleted, 4 sequence_number,
+ * 5 acked_sequence_number, 6 server_version, 7 created ms, 8 modified ms,
+ * 9 specifics_hash, 13 possibly_trimmed_base_specifics.
+ */
+export const metadataValue = (spec: MetadataSpec = {}): Uint8Array =>
+  encode(new Map<number, Field>([
+    [1, text(spec.clientTagHash ?? '+7CLRdQyKhMe59nNzyw5gmNEc/c=')],
+    [2, text(spec.serverId ?? 'Z:ADqtAZx61GDmIFAWyBB8+LVyRDCLPkdcqYXW04')],
+    [3, 0n],
+    [4, BigInt(spec.sequence ?? 0)],
+    [5, BigInt(spec.acked ?? 0)],
+    [6, 1457604868594122n],
+    [7, 1457604868278n],
+    [8, 1457604868594n],
+    [9, text(spec.specificsHash ?? 'J6D0P44gKY3ay59wQlu/QnYOi3A=')],
+    [13, new Uint8Array()]
+  ]))
+
+export const metaKey = (guid: string): string => `saved_tab_group-md-${guid}`

@@ -35,7 +35,12 @@ leftovers), `--match <text>`, `--regex <pattern>`.
 - **Read the profile first.** `list` works while the browser runs, so always show
   the user what will go before deleting.
 - **Sync-enabled profiles are skipped** - a local delete there is re-downloaded.
-  The command says so and names the setting to change.
+  Pass `--sync-tombstone` to commit the deletion to the account instead: the
+  entity's sync metadata stays behind marked deleted with a pending commit, so
+  every other device drops the group too. Without the flag the command refuses
+  and names the sync setting to change. The tombstone's bytes are tested; whether
+  a given Chrome build's processor commits one it did not write itself is not
+  verified against a live account, so say that when offering it.
 - **Backups happen automatically** under `~/.chrome-tab-group-cleaner/backups/`.
   Undo is `node dist/cli.js restore --backup <that directory> --profile <dir>`
   with the browser quit.

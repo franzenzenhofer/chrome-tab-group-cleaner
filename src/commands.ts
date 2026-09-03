@@ -1,7 +1,8 @@
 import { browserById, isRunning, profiles, type Browser, type Profile } from './browsers.js'
 import { groupLine, heading, summary, tabLines } from './report.js'
 import { selector, type Selection } from './select.js'
-import { backup, deleteKeys, keysOf, readStore, restore } from './store.js'
+import { applyWrites, backup, keysOf, metadataKey, readStore, restore, storageKeyOf, type Contents, type Write } from './store.js'
+import { tombstone } from './tombstone.js'
 import { captureWindows, quit, reopen, type OpenWindow } from './restart.js'
 
 export interface Options extends Selection {
@@ -12,6 +13,7 @@ export interface Options extends Selection {
   orphans?: boolean
   dryRun?: boolean
   restart?: boolean
+  syncTombstone?: boolean
   backup?: string
   /** Points at a user data directory other than the browser's own - for tests. */
   userDataDir?: string
@@ -55,6 +57,31 @@ export async function list (options: Options): Promise<void> {
   }
 }
 
+/**
+ * Data always goes. Its sync metadata either goes with it, or - with
+ * --sync-tombstone - stays behind marked deleted so the processor commits the
+ * deletion and every other device drops the group too.
+ */
+export function plan (keys: string[], contents: Contents, options: Options): { writes: Write[], tombstones: number } {
+  const writes: Write[] = []
+  let tombstones = 0
+  const now = Date.now()
+  for (const key of keys) {
+    writes.push({ type: 'del', key })
+    const storageKey = storageKeyOf(key)
+    const metadata = contents.metadata.get(storageKey)
+    if (metadata === undefined) continue
+    const metaKey = metadataKey(storageKey)
+    if (options.syncTombstone === true) {
+      writes.push({ type: 'put', key: metaKey, value: tombstone(metadata, metaKey, now) })
+      tombstones += 1
+    } else {
+      writes.push({ type: 'del', key: metaKey })
+    }
+  }
+  return { writes, tombstones }
+}
+
 async function deleteInProfile (profile: Profile, options: Options): Promise<void> {
   const match = selector(options)
   const contents = await readStore(profile.db, options.dryRun === true)
@@ -66,16 +93,24 @@ async function deleteInProfile (profile: Profile, options: Options): Promise<voi
   for (const group of doomed) say(groupLine(group, options.dryRun ? 'would delete  ' : 'delete  '))
   if (orphanKeys.length > 0) say(`    ${options.dryRun ? 'would sweep' : 'sweep'} ${orphanKeys.length} orphan tab(s)`)
   if (keys.length === 0) { say('    nothing matched'); return }
-  if (options.dryRun) { say(`    dry run - ${keys.length} key(s) would go`); return }
-  if (profile.syncsTabGroups) {
-    say('    SKIPPED: this profile syncs tab groups, so the delete would be re-downloaded.')
-    say('    Turn "Tab groups" off in chrome://settings/syncSetup/advanced first.')
+  if (profile.syncsTabGroups && options.syncTombstone !== true) {
+    say('    SKIPPED: this profile syncs tab groups, so a plain delete would be re-downloaded.')
+    say('    Turn "Tab groups" off in chrome://settings/syncSetup/advanced and leave it off,')
+    say('    or pass --sync-tombstone to commit the deletion to the account instead.')
+    return
+  }
+
+  const { writes, tombstones } = plan(keys, contents, options)
+  if (options.dryRun) {
+    say(`    dry run - ${keys.length} entity key(s) would go` +
+      (tombstones > 0 ? `, ${tombstones} would be tombstoned for sync` : ''))
     return
   }
 
   const saved = backup(profile.db)
-  await deleteKeys(profile.db, keys)
-  say(`    deleted ${keys.length} key(s). Backup: ${saved}`)
+  await applyWrites(profile.db, writes)
+  say(`    deleted ${keys.length} key(s)` +
+    (tombstones > 0 ? `, tombstoned ${tombstones} for sync` : '') + `. Backup: ${saved}`)
 }
 
 export async function remove (options: Options): Promise<void> {

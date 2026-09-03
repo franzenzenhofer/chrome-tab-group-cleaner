@@ -6,7 +6,12 @@ import { parseRecord, type GroupRecord, type TabRecord } from './proto.js'
 
 export const KEY_PREFIX = 'saved_tab_group-'
 const KEY_END = 'saved_tab_group.'
-const DATA_PREFIX = `${KEY_PREFIX}dt-`
+export const DATA_PREFIX = `${KEY_PREFIX}dt-`
+export const METADATA_PREFIX = `${KEY_PREFIX}md-`
+
+/** Saved tab groups use the entity guid as their storage key. */
+export const storageKeyOf = (dataKey: string): string => dataKey.slice(DATA_PREFIX.length)
+export const metadataKey = (storageKey: string): string => `${METADATA_PREFIX}${storageKey}`
 
 export type Store = ClassicLevel<string, Uint8Array>
 
@@ -17,7 +22,9 @@ export interface Contents {
   groups: Group[]
   /** Tabs whose group is already gone - Chrome leaves these behind by itself. */
   orphans: Tab[]
-  /** Keys under the prefix that are not entity data, e.g. sync metadata. */
+  /** Sync metadata beside the entities, by storage key. Empty when sync is off. */
+  metadata: Map<string, Uint8Array>
+  /** Keys under the prefix that are neither entity data nor entity metadata. */
   other: string[]
 }
 
@@ -54,9 +61,11 @@ export async function closeStore (db: Store, temp: string | null): Promise<void>
 export async function readContents (db: Store): Promise<Contents> {
   const groups = new Map<string, Group>()
   const tabs: Tab[] = []
+  const metadata = new Map<string, Uint8Array>()
   const other: string[] = []
 
   for await (const [key, value] of db.iterator({ gte: KEY_PREFIX, lt: KEY_END })) {
+    if (key.startsWith(METADATA_PREFIX)) { metadata.set(key.slice(METADATA_PREFIX.length), value); continue }
     if (!key.startsWith(DATA_PREFIX)) { other.push(key); continue }
     const record = parseRecord(value)
     if (record.kind === 'group' && record.guid) groups.set(record.guid, { ...record, key, tabs: [] })
@@ -73,6 +82,7 @@ export async function readContents (db: Store): Promise<Contents> {
   return {
     groups: [...groups.values()].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
     orphans,
+    metadata,
     other
   }
 }
@@ -102,15 +112,22 @@ export function backup (dbPath: string): string {
   return dest
 }
 
-export async function deleteKeys (dbPath: string, keys: string[]): Promise<void> {
+export type Write =
+  | { type: 'del', key: string }
+  | { type: 'put', key: string, value: Uint8Array }
+
+export async function applyWrites (dbPath: string, writes: Write[]): Promise<void> {
   const db = open(dbPath)
   await db.open({ createIfMissing: false })
   try {
-    await db.batch(keys.map((key) => ({ type: 'del' as const, key })))
+    await db.batch(writes)
   } finally {
     await db.close()
   }
 }
+
+export const deleteKeys = async (dbPath: string, keys: string[]): Promise<void> =>
+  applyWrites(dbPath, keys.map((key) => ({ type: 'del' as const, key })))
 
 /**
  * Copies saved tab group entities from a backup back into a live store. Only

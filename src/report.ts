@@ -15,6 +15,7 @@ export function heading (profile: Profile): string {
 export function summary (contents: Contents): string {
   const parts = [plural(contents.groups.length, 'saved group'), plural(tabCount(contents.groups), 'tab')]
   if (contents.orphans.length > 0) parts.push(plural(contents.orphans.length, 'orphan tab'))
+  if (contents.metadata.size > 0) parts.push(plural(contents.metadata.size, 'sync metadata record'))
   if (contents.other.length > 0) parts.push(plural(contents.other.length, 'other key'))
   return `    ${parts.join(', ')}`
 }

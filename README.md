@@ -56,6 +56,7 @@ chrome-tab-group-cleaner restore --backup ~/.chrome-tab-group-cleaner/backups/De
 | `--orphans` | also sweep tabs whose group is already gone - Chrome leaves plenty |
 | `--dry-run` | print what would happen, touch nothing |
 | `--restart` | quit the browser, delete, reopen the same tabs in the same profiles (macOS) |
+| `--sync-tombstone` | on a profile that syncs tab groups, commit the deletion to the account |
 | `--user-data-dir <path>` | a user data directory other than the browser's own |
 
 **The browser must be quit for a delete.** Its LevelDB is locked exclusively, and
@@ -69,21 +70,22 @@ saved-tab-group keys back; nothing else in the store is touched.
 
 ## Sync
 
-A profile that syncs tab groups re-downloads whatever you delete locally, so
-`delete` refuses to touch one and says so. The tool reads the profile's own
+A profile that syncs tab groups re-downloads whatever you delete locally, so a
+plain `delete` refuses to touch one and says so. The tool reads the profile's own
 `Preferences` to decide (`sync.keep_everything_synced`, `sync.saved_tab_groups`),
-and `profiles` marks such profiles. Two routes work there:
+and `profiles` marks such profiles. Three routes work there:
 
+- `--sync-tombstone`, below: the deletion is committed to the account and reaches
+  every other device.
 - Turn *Tab groups* off in `chrome://settings/syncSetup/advanced` and **leave it
   off**, then delete locally. Turning it back on re-downloads the server copy, so
   that toggle is the decision, not a way around it.
-- Delete them in the UI on one device. Chrome writes proper tombstones itself.
+- Delete them in the UI on one device. Chrome writes the same tombstones itself.
 
-### Why not forge a tombstone?
+### --sync-tombstone
 
-Sync does have a "deleted on purpose" flag, and it would be reachable from here.
-Each entity has a metadata record beside its data, `<type>-md-<storage key>`, a
-`sync_pb::EntityMetadata`:
+Every synced entity has a metadata record beside its data at
+`<type>-md-<storage key>`, a `sync_pb::EntityMetadata`:
 
 ```
 1 client_tag_hash   2 server_id       3 is_deleted            4 sequence_number
@@ -91,26 +93,27 @@ Each entity has a metadata record beside its data, `<type>-md-<storage key>`, a
 7 creation_time ms  8 modification_time ms                    9 specifics_hash
 ```
 
-A deletion that propagates is: drop the `-dt-` record, and rewrite `-md-` with
+A deletion Chrome will propagate is: drop the `-dt-` record, and keep `-md-` with
 `is_deleted = 1`, `sequence_number = acked_sequence_number + 1`, `specifics_hash`
 cleared and `modification_time` set to now. A sequence number ahead of the acked
-one is what the processor reads on startup as an uncommitted local change, and it
-commits the deletion to the server, which reaches every other device.
+one is what the processor reads on startup as an uncommitted local change; it
+commits the deletion, and the account tells every other device to drop the group.
 
-This tool does not do that, deliberately:
+Without the flag the metadata is deleted along with the data, so nothing dangles.
 
-- The half that matters cannot be tested without a real synced account. Writing
-  the bytes is easy to verify; having Chrome's processor accept and commit them
-  is not.
-- The failure mode is silent and total. Metadata the processor considers
-  inconsistent makes it clear the data type and re-download it - every group
-  comes back, with no explanation.
-- These field numbers are Chrome internals. A renumbering turns a forged
-  tombstone into corrupt metadata for a data type this tool has no business
-  touching.
+Two guards sit in front of that write. The record must carry a client tag hash -
+without one Chrome is not tracking the entity, and there is nothing to commit
+against. And the record must re-encode byte for byte through this tool's reader,
+which is refused otherwise: a repeated field or an unusual field order would
+survive decoding but not re-encoding, and metadata Chrome considers inconsistent
+makes it clear the data type and download it again.
 
-Deleting entity data is recoverable from a backup. Corrupting sync metadata is a
-different class of risk, so the line is drawn here.
+**What is verified, and what is not.** The bytes written are covered by tests,
+and the field numbers were read out of a live Chrome store rather than assumed.
+Whether a given Chrome build's sync processor accepts a tombstone it did not
+write itself is not verified against a live Google account. If it does not, the
+worst case is the one you already had: the groups come back. The store is backed
+up before the write either way, and `restore` puts it back.
 
 ## Where saved tab groups live
 

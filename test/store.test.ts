@@ -3,8 +3,11 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { backup, backupRoot, deleteKeys, keysOf, readStore, restore } from '../src/store.js'
-import { groupValue, key, makeStore, tabValue } from './fixture.js'
+import { applyWrites, backup, backupRoot, deleteKeys, keysOf, readStore, restore } from '../src/store.js'
+import { plan } from '../src/commands.js'
+import { decode } from '../src/proto.js'
+import { SEQUENCE_NUMBER, isTombstone } from '../src/tombstone.js'
+import { groupValue, key, makeStore, metaKey, metadataValue, tabValue } from './fixture.js'
 
 const backups = mkdtempSync(join(tmpdir(), 'ctgc-backups-'))
 process.env['CHROME_TAB_GROUP_CLEANER_BACKUPS'] = backups
@@ -76,5 +79,58 @@ describe('backup and restore', () => {
     const back = await readStore(path)
     expect(back.groups.map((group) => group.title)).toEqual(['✅Claude', 'App Store analytics review'])
     expect(back.groups[0]?.tabs).toHaveLength(2)
+  })
+})
+
+describe('plan', () => {
+  const synced = async (): Promise<string> => makeStore([
+    [key('g1'), groupValue('g1', '✅Claude', 5, 1)],
+    [metaKey('g1'), metadataValue({ sequence: 2, acked: 2 })],
+    [key('t1'), tabValue({ guid: 't1', group: 'g1', url: 'https://claude.ai/a', title: 'Claude', position: 0 })],
+    [metaKey('t1'), metadataValue({ sequence: 7, acked: 7 })],
+    [key('g2'), groupValue('g2', 'Local only', 1, 2)]
+  ])
+
+  it('reads metadata apart from entities', async () => {
+    const contents = await readStore(await synced())
+    expect([...contents.metadata.keys()].sort()).toEqual(['g1', 't1'])
+    expect(contents.groups.map((group) => group.title)).toEqual(['✅Claude', 'Local only'])
+  })
+
+  it('deletes metadata along with the entity by default', async () => {
+    const contents = await readStore(await synced())
+    const { writes, tombstones } = plan(keysOf(contents.groups.filter((g) => g.title.includes('Claude'))), contents, {
+      browser: 'chrome'
+    })
+    expect(tombstones).toBe(0)
+    expect(writes.every((write) => write.type === 'del')).toBe(true)
+    expect(writes.map((write) => write.key).sort()).toEqual(
+      [key('g1'), key('t1'), metaKey('g1'), metaKey('t1')].sort()
+    )
+  })
+
+  it('leaves a pending deletion behind with --sync-tombstone', async () => {
+    const path = await synced()
+    const contents = await readStore(path)
+    const { writes, tombstones } = plan(keysOf(contents.groups.filter((g) => g.title.includes('Claude'))), contents, {
+      browser: 'chrome', syncTombstone: true
+    })
+    expect(tombstones).toBe(2)
+
+    await applyWrites(path, writes)
+    const after = await readStore(path)
+    expect(after.groups.map((group) => group.title)).toEqual(['Local only'])
+    expect([...after.metadata.keys()].sort()).toEqual(['g1', 't1'])
+    for (const raw of after.metadata.values()) expect(isTombstone(raw)).toBe(true)
+    expect(decode(after.metadata.get('g1') as Uint8Array).get(SEQUENCE_NUMBER)).toBe(3n)
+  })
+
+  it('plainly deletes an entity that was never committed', async () => {
+    const contents = await readStore(await synced())
+    const { writes, tombstones } = plan(keysOf(contents.groups.filter((g) => g.title === 'Local only')), contents, {
+      browser: 'chrome', syncTombstone: true
+    })
+    expect(tombstones).toBe(0)
+    expect(writes).toEqual([{ type: 'del', key: key('g2') }])
   })
 })

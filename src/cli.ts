@@ -24,6 +24,9 @@ Options
   --orphans                      also sweep tabs whose group is already gone
   --dry-run                      print what would happen, touch nothing
   --restart                      quit the browser, act, reopen the same tabs (macOS)
+  --sync-tombstone               on a profile that syncs tab groups, leave a sync
+                                 tombstone so the deletion reaches the account and
+                                 every other device, instead of refusing
   --verbose, -v                  with list: show each group's tabs
 
 The browser must be quit for a delete: its LevelDB is locked, and a running
@@ -41,6 +44,7 @@ const OPTIONS = {
   orphans: { type: 'boolean' as const },
   'dry-run': { type: 'boolean' as const },
   restart: { type: 'boolean' as const },
+  'sync-tombstone': { type: 'boolean' as const },
   backup: { type: 'string' as const },
   verbose: { type: 'boolean' as const, short: 'v' },
   help: { type: 'boolean' as const, short: 'h' }
@@ -72,6 +76,7 @@ async function main (): Promise<void> {
     orphans: values.orphans === true,
     dryRun: values['dry-run'] === true,
     restart: values.restart === true,
+    syncTombstone: values['sync-tombstone'] === true,
     verbose: values.verbose === true
   }
 
