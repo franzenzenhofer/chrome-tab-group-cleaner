@@ -1,28 +1,61 @@
 # chrome-tab-group-cleaner
 
-Bulk-delete Chrome's **saved tab groups** - the pill-shaped chips in the bookmarks
-bar and the rows behind the grid button next to them.
+**Chrome has no bulk delete for saved tab groups. This is one.**
 
-Chrome has no bulk delete for these. The only UI is right-click -> *Delete group*,
-one group at a time. If something creates them automatically they pile up fast:
-the [Claude in Chrome](https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn)
-extension names its group `✅Claude` (and `⌛Claude` while a task runs) and leaves
-one behind per session. This tool edits the store directly, so 70 of them go in
-one command.
+Saved tab groups are the pill-shaped chips in the bookmarks bar, and the rows
+behind the grid button next to them. Chrome's only way to remove one is
+right-click -> *Delete group*, one at a time. There is nothing in Settings, no
+multi-select, no "delete all".
+
+That is fine until something makes them for you. The
+[Claude in Chrome](https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn)
+extension names its group `✅Claude` (`⌛Claude` while a task runs) and leaves one
+behind per session. Three months in, my profile had 70 of them, plus 95 orphan
+tabs left by Chrome's own housekeeping. That is 70 right-clicks - or:
+
+```bash
+chrome-tab-group-cleaner delete --claude --orphans --restart
+```
+
+**Before** - 71 saved groups. The bar shows the 15 that fit; the rest sit behind
+the grid button.
+
+![Chrome's bookmarks bar filled end to end with identical ✅Claude tab group chips](docs/before.png)
+
+**After** - same profile, one command later. `App Store analytics review` survives,
+because it is not a Claude group.
+
+![The same bookmarks bar with only one tab group chip left, App Store analytics review](docs/after.png)
+
+Both screenshots are the same Chrome profile before and after the command. Not a
+mockup: the store from the "before" shot is a real backup, replayed and cleaned
+by the tool in this repo.
+
+## Where saved tab groups live
+
+One LevelDB per profile, shared with other sync data types:
 
 ```
-$ chrome-tab-group-cleaner delete --claude --orphans --restart
-
-capturing 2 window(s), quitting Google Chrome
-
-=== Default  (fullstackoptimization.com / franz@example.com)
-    delete  "✅Claude"  [blue]  1 tab  999db2b7-2b83-4ef3-9e36-44440731b329
-    delete  "✅Claude"  [purple]  1 tab  fed8ddf4-2940-4f3f-9271-9200767fd0d2
-    ...
-    sweep 95 orphan tab(s)
-    deleted 271 key(s). Backup: ~/.chrome-tab-group-cleaner/backups/Default-2026-09-03T21-42-03-116Z
-reopening 2 window(s)
+<user data>/<Profile>/Sync Data/LevelDB
 ```
+
+One key per entity, `saved_tab_group-dt-<uuid>`. The value is a DataTypeStore
+wrapper around a `SavedTabGroupSpecifics` protobuf:
+
+```
+{ 1: schema version, 2: SavedTabGroupSpecifics }
+
+SavedTabGroupSpecifics { 1: guid, 2: created µs, 3: updated µs, 4: group, 5: tab }
+  group { 2: title, 3: color, 4: position }
+  tab   { 1: group guid, 2: position, 3: url, 4: title }
+```
+
+Timestamps are Windows-epoch (1601) microseconds. Colors are one-based into
+`grey, blue, red, yellow, green, pink, purple, cyan, orange`.
+
+A group is a group entity **plus** its tab entities: delete only the group and the
+tabs linger as orphans, which is exactly how Chrome's own housekeeping leaves
+them. `src/proto.ts` reads this wire format directly - no protobuf dependency.
 
 ## Install
 
@@ -114,32 +147,6 @@ Whether a given Chrome build's sync processor accepts a tombstone it did not
 write itself is not verified against a live Google account. If it does not, the
 worst case is the one you already had: the groups come back. The store is backed
 up before the write either way, and `restore` puts it back.
-
-## Where saved tab groups live
-
-One LevelDB per profile, shared with other sync data types:
-
-```
-<user data>/<Profile>/Sync Data/LevelDB
-```
-
-One key per entity, `saved_tab_group-dt-<uuid>`. The value is a DataTypeStore
-wrapper around a `SavedTabGroupSpecifics` protobuf:
-
-```
-{ 1: schema version, 2: SavedTabGroupSpecifics }
-
-SavedTabGroupSpecifics { 1: guid, 2: created µs, 3: updated µs, 4: group, 5: tab }
-  group { 2: title, 3: color, 4: position }
-  tab   { 1: group guid, 2: position, 3: url, 4: title }
-```
-
-Timestamps are Windows-epoch (1601) microseconds. Colors are one-based into
-`grey, blue, red, yellow, green, pink, purple, cyan, orange`.
-
-A group is a group entity **plus** its tab entities: delete only the group and the
-tabs linger as orphans, which is exactly how Chrome's own housekeeping leaves
-them. `src/proto.ts` reads this wire format directly - no protobuf dependency.
 
 ## Development
 
