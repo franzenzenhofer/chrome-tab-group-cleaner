@@ -1,0 +1,44 @@
+{
+  "name": "chrome-tab-group-cleaner",
+  "version": "1.0.0",
+  "description": "Bulk-delete Chrome's saved tab groups by editing the profile store directly - including the ✅Claude ones the Claude in Chrome extension leaves behind",
+  "type": "module",
+  "license": "MIT",
+  "author": "Franz Enzenhofer",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/franzenzenhofer/chrome-tab-group-cleaner.git"
+  },
+  "bin": {
+    "chrome-tab-group-cleaner": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "SKILL.md",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.check.json",
+    "lint": "eslint src test",
+    "test": "vitest run",
+    "gates": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "start": "npm run build && node dist/cli.js"
+  },
+  "dependencies": {
+    "classic-level": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "eslint": "^9.17.0",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1",
+    "vitest": "^2.1.8"
+  },
+  "allowScripts": {
+    "classic-level@3.0.0": true
+  }
+}
