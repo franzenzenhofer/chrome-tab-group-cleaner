@@ -2,7 +2,17 @@
 
 **Chrome has no bulk delete for saved tab groups. This is one.**
 
-Saved tab groups are the pill-shaped chips in the bookmarks bar, and the rows
+![Chrome's bookmarks bar filled end to end with identical green Claude tab group chips](docs/before.png)
+
+*Before: 71 saved groups, 70 of them Claude's. The bar shows the 15 that fit; the
+rest sit behind the grid button.*
+
+![The same bookmarks bar with a single chip left on it](docs/after.png)
+
+*After: one run of `chrome-tab-group-cleaner delete --claude --orphans --restart`.
+`App Store analytics review` survives - it is not a Claude group.*
+
+Saved tab groups are those pill-shaped chips in the bookmarks bar, and the rows
 behind the grid button next to them. Chrome's only way to remove one is
 right-click -> *Delete group*, one at a time. There is nothing in Settings, no
 multi-select, no "delete all".
@@ -11,24 +21,10 @@ That is fine until something makes them for you. The
 [Claude in Chrome](https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn)
 extension names its group `✅Claude` (`⌛Claude` while a task runs) and leaves one
 behind per session. Three months in, my profile had 70 of them, plus 95 orphan
-tabs left by Chrome's own housekeeping. That is 70 right-clicks - or:
+tabs left by Chrome's own housekeeping. That is 70 right-clicks - or one command.
 
-```bash
-chrome-tab-group-cleaner delete --claude --orphans --restart
-```
-
-**Before** - 71 saved groups, 70 of them Claude's. The bar shows the 15 that fit;
-the rest sit behind the grid button.
-
-![Chrome's bookmarks bar filled end to end with identical ✅Claude tab group chips](docs/before.png)
-
-**After** - same profile, one command later. `App Store analytics review` survives,
-because it is not a Claude group.
-
-![The same bookmarks bar with only one tab group chip left, App Store analytics review](docs/after.png)
-
-Both screenshots are the same Chrome profile before and after the command. Not a
-mockup: the store from the "before" shot is a real backup, replayed and cleaned
+Both screenshots are the same Chrome profile before and after that command. Not a
+mockup: the store behind the "before" shot is a real backup, replayed and cleaned
 by the tool in this repo.
 
 ## Where saved tab groups live
