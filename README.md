@@ -70,10 +70,47 @@ saved-tab-group keys back; nothing else in the store is touched.
 ## Sync
 
 A profile that syncs tab groups re-downloads whatever you delete locally, so
-`delete` refuses to touch one and says so. Turn *Tab groups* off in
-`chrome://settings/syncSetup/advanced` first, or delete those in the UI. The tool
-reads the profile's own `Preferences` to decide (`sync.keep_everything_synced`,
-`sync.saved_tab_groups`), and `profiles` marks such profiles.
+`delete` refuses to touch one and says so. The tool reads the profile's own
+`Preferences` to decide (`sync.keep_everything_synced`, `sync.saved_tab_groups`),
+and `profiles` marks such profiles. Two routes work there:
+
+- Turn *Tab groups* off in `chrome://settings/syncSetup/advanced` and **leave it
+  off**, then delete locally. Turning it back on re-downloads the server copy, so
+  that toggle is the decision, not a way around it.
+- Delete them in the UI on one device. Chrome writes proper tombstones itself.
+
+### Why not forge a tombstone?
+
+Sync does have a "deleted on purpose" flag, and it would be reachable from here.
+Each entity has a metadata record beside its data, `<type>-md-<storage key>`, a
+`sync_pb::EntityMetadata`:
+
+```
+1 client_tag_hash   2 server_id       3 is_deleted            4 sequence_number
+5 acked_sequence_number               6 server_version
+7 creation_time ms  8 modification_time ms                    9 specifics_hash
+```
+
+A deletion that propagates is: drop the `-dt-` record, and rewrite `-md-` with
+`is_deleted = 1`, `sequence_number = acked_sequence_number + 1`, `specifics_hash`
+cleared and `modification_time` set to now. A sequence number ahead of the acked
+one is what the processor reads on startup as an uncommitted local change, and it
+commits the deletion to the server, which reaches every other device.
+
+This tool does not do that, deliberately:
+
+- The half that matters cannot be tested without a real synced account. Writing
+  the bytes is easy to verify; having Chrome's processor accept and commit them
+  is not.
+- The failure mode is silent and total. Metadata the processor considers
+  inconsistent makes it clear the data type and re-download it - every group
+  comes back, with no explanation.
+- These field numbers are Chrome internals. A renumbering turns a forged
+  tombstone into corrupt metadata for a data type this tool has no business
+  touching.
+
+Deleting entity data is recoverable from a backup. Corrupting sync metadata is a
+different class of risk, so the line is drawn here.
 
 ## Where saved tab groups live
 
