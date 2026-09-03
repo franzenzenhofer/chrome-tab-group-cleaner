@@ -17,8 +17,8 @@ tabs left by Chrome's own housekeeping. That is 70 right-clicks - or:
 chrome-tab-group-cleaner delete --claude --orphans --restart
 ```
 
-**Before** - 71 saved groups. The bar shows the 15 that fit; the rest sit behind
-the grid button.
+**Before** - 71 saved groups, 70 of them Claude's. The bar shows the 15 that fit;
+the rest sit behind the grid button.
 
 ![Chrome's bookmarks bar filled end to end with identical ✅Claude tab group chips](docs/before.png)
 
