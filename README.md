@@ -27,23 +27,32 @@ Both screenshots are the same Chrome profile before and after that command. Not 
 mockup: the store behind the "before" shot is a real backup, replayed and cleaned
 by the tool in this repo.
 
+It installs as a **Claude Code skill** as well as a CLI, so you can also just ask
+for it: *"get rid of all these Claude tab groups"*.
+
 ## Install
 
-```bash
-git clone https://github.com/franzenzenhofer/chrome-tab-group-cleaner.git
-cd chrome-tab-group-cleaner
-npm install && npm run build
-node dist/cli.js --help          # or: npm link, then chrome-tab-group-cleaner --help
-```
-
-Node 20+. One runtime dependency, `classic-level`, which ships prebuilt binaries.
+It is a Claude Code skill and a standalone CLI, from the same clone. Node 20+,
+one runtime dependency (`classic-level`, which ships prebuilt binaries).
 
 ### As a Claude Code skill
 
-This repo ships a `SKILL.md`, so Claude Code can drive it for you: *"get rid of
-all these Claude tab groups"* is enough once it is installed. Paste this prompt
-into Claude Code to have it install itself - it reads the code before it trusts
-it, and shows you your own tab groups before anything is deleted:
+The repo *is* the skill - `SKILL.md` sits at its root - so cloning it into your
+skills directory installs it:
+
+```bash
+git clone https://github.com/franzenzenhofer/chrome-tab-group-cleaner.git \
+  ~/.claude/skills/chrome-tab-group-cleaner
+cd ~/.claude/skills/chrome-tab-group-cleaner && npm install && npm run build
+```
+
+Start a new Claude Code session and ask for it in your own words - *"get rid of
+all these Claude tab groups"*, *"kill all my saved tab groups"*. The skill tells
+the agent to show you what is there before deleting anything, to dry-run first,
+and to quit and reopen your browser properly rather than leaving it half-done.
+
+**Would rather your agent read the code before you trust it?** Paste this prompt
+into Claude Code instead, and let it decide:
 
 ```text
 Install https://github.com/franzenzenhofer/chrome-tab-group-cleaner as a global
@@ -57,17 +66,22 @@ your judgement on it before it is installed, not after. If any of it looks wrong
 stop and say so instead of installing.
 
 If it checks out:
-- keep the clone somewhere permanent, e.g. ~/dev/chrome-tab-group-cleaner
+- clone it to ~/.claude/skills/chrome-tab-group-cleaner
 - run: npm install && npm run gates   (stop if any gate fails)
-- symlink it in: ln -s <clone path> ~/.claude/skills/chrome-tab-group-cleaner
 - then show me: node dist/cli.js list --all-profiles
 
 Never delete anything without showing me a --dry-run of exactly what would go,
 and never quit my browser without telling me first.
 ```
 
-By hand it is the same three steps: clone, `npm install && npm run build`, then
-`ln -s <clone path> ~/.claude/skills/chrome-tab-group-cleaner`.
+### As a plain CLI
+
+```bash
+git clone https://github.com/franzenzenhofer/chrome-tab-group-cleaner.git
+cd chrome-tab-group-cleaner
+npm install && npm run build
+node dist/cli.js --help          # or: npm link, then chrome-tab-group-cleaner --help
+```
 
 ## Use
 
