@@ -38,6 +38,37 @@ node dist/cli.js --help          # or: npm link, then chrome-tab-group-cleaner -
 
 Node 20+. One runtime dependency, `classic-level`, which ships prebuilt binaries.
 
+### As a Claude Code skill
+
+This repo ships a `SKILL.md`, so Claude Code can drive it for you: *"get rid of
+all these Claude tab groups"* is enough once it is installed. Paste this prompt
+into Claude Code to have it install itself - it reads the code before it trusts
+it, and shows you your own tab groups before anything is deleted:
+
+```text
+Install https://github.com/franzenzenhofer/chrome-tab-group-cleaner as a global
+Claude Code skill on this machine.
+
+First, before anything else: clone it somewhere temporary and read it - SKILL.md,
+README.md, and every file under src/. Then tell me in plain words what it does,
+what it writes to, and anything you find questionable. This tool deletes records
+from Chrome's own profile database and can quit and reopen my browser, so I want
+your judgement on it before it is installed, not after. If any of it looks wrong,
+stop and say so instead of installing.
+
+If it checks out:
+- keep the clone somewhere permanent, e.g. ~/dev/chrome-tab-group-cleaner
+- run: npm install && npm run gates   (stop if any gate fails)
+- symlink it in: ln -s <clone path> ~/.claude/skills/chrome-tab-group-cleaner
+- then show me: node dist/cli.js list --all-profiles
+
+Never delete anything without showing me a --dry-run of exactly what would go,
+and never quit my browser without telling me first.
+```
+
+By hand it is the same three steps: clone, `npm install && npm run build`, then
+`ln -s <clone path> ~/.claude/skills/chrome-tab-group-cleaner`.
+
 ## Use
 
 ```bash

@@ -11,8 +11,10 @@ options: `README.md` next to this file.
 
 ## First run
 
+The skill directory is the repo. Build it once, from that directory:
+
 ```bash
-cd "$(dirname "$0")" && npm install && npm run build
+cd ~/.claude/skills/chrome-tab-group-cleaner && npm install && npm run build
 ```
 
 ## Do this
