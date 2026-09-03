@@ -27,32 +27,6 @@ Both screenshots are the same Chrome profile before and after that command. Not 
 mockup: the store behind the "before" shot is a real backup, replayed and cleaned
 by the tool in this repo.
 
-## Where saved tab groups live
-
-One LevelDB per profile, shared with other sync data types:
-
-```
-<user data>/<Profile>/Sync Data/LevelDB
-```
-
-One key per entity, `saved_tab_group-dt-<uuid>`. The value is a DataTypeStore
-wrapper around a `SavedTabGroupSpecifics` protobuf:
-
-```
-{ 1: schema version, 2: SavedTabGroupSpecifics }
-
-SavedTabGroupSpecifics { 1: guid, 2: created µs, 3: updated µs, 4: group, 5: tab }
-  group { 2: title, 3: color, 4: position }
-  tab   { 1: group guid, 2: position, 3: url, 4: title }
-```
-
-Timestamps are Windows-epoch (1601) microseconds. Colors are one-based into
-`grey, blue, red, yellow, green, pink, purple, cyan, orange`.
-
-A group is a group entity **plus** its tab entities: delete only the group and the
-tabs linger as orphans, which is exactly how Chrome's own housekeeping leaves
-them. `src/proto.ts` reads this wire format directly - no protobuf dependency.
-
 ## Install
 
 ```bash
@@ -96,6 +70,32 @@ throwaway copy when the lock is held. `--restart` does the quit-and-reopen for y
 Every delete copies the whole store to `~/.chrome-tab-group-cleaner/backups/`
 first (override with `CHROME_TAB_GROUP_CLEANER_BACKUPS`). `restore` puts only the
 saved-tab-group keys back; nothing else in the store is touched.
+
+## Where saved tab groups live
+
+One LevelDB per profile, shared with other sync data types:
+
+```
+<user data>/<Profile>/Sync Data/LevelDB
+```
+
+One key per entity, `saved_tab_group-dt-<uuid>`. The value is a DataTypeStore
+wrapper around a `SavedTabGroupSpecifics` protobuf:
+
+```
+{ 1: schema version, 2: SavedTabGroupSpecifics }
+
+SavedTabGroupSpecifics { 1: guid, 2: created µs, 3: updated µs, 4: group, 5: tab }
+  group { 2: title, 3: color, 4: position }
+  tab   { 1: group guid, 2: position, 3: url, 4: title }
+```
+
+Timestamps are Windows-epoch (1601) microseconds. Colors are one-based into
+`grey, blue, red, yellow, green, pink, purple, cyan, orange`.
+
+A group is a group entity **plus** its tab entities: delete only the group and the
+tabs linger as orphans, which is exactly how Chrome's own housekeeping leaves
+them. `src/proto.ts` reads this wire format directly - no protobuf dependency.
 
 ## Sync
 
