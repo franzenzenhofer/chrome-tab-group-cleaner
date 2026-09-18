@@ -28,27 +28,39 @@ function profileFor (label: string, profiles: Profile[]): Profile {
   throw new Error(`${why} - quit the browser yourself and drop --restart`)
 }
 
-/** Reads every open window: its tab URLs and the profile it belongs to. */
-export function captureWindows (browser: Browser, profiles: Profile[]): OpenWindow[] {
-  const app = macApp(browser)
-  const lines = osascript(`tell application "${app}"
+/** Separates the window title from its tab URLs in the captured output. */
+export const CAPTURE_SEPARATOR = '\t'
+
+/**
+ * Chrome's own terminology defines `tab`, which shadows AppleScript's `tab`
+ * character constant inside a `tell application "Google Chrome"` block - there
+ * `& tab &` appends the literal text "tab" and every URL runs into the one
+ * before it. The separator is bound to a variable outside the block instead.
+ */
+export const captureScript = (app: string): string => `set sep to (ASCII character 9)
+  tell application "${app}"
     set out to ""
     repeat with w in windows
       set out to out & (title of active tab of w)
       repeat with t in tabs of w
-        set out to out & tab & (URL of t)
+        set out to out & sep & (URL of t)
       end repeat
       set out to out & linefeed
     end repeat
     return out
-  end tell`).split('\n').filter((line) => line.length > 0)
+  end tell`
+
+/** Reads every open window: its tab URLs and the profile it belongs to. */
+export function captureWindows (browser: Browser, profiles: Profile[]): OpenWindow[] {
+  const app = macApp(browser)
+  const lines = osascript(captureScript(app)).split('\n').filter((line) => line.length > 0)
 
   const titles = osascript(`tell application "System Events" to tell process "${app}" to get name of every window`)
     .split(', ').map((name) => name.trim())
   const marker = ` - ${browser.name} - `
 
   return lines.map((line, index) => {
-    const [active = '', ...urls] = line.split('\t')
+    const [active = '', ...urls] = line.split(CAPTURE_SEPARATOR)
     const title = titles.find((name) => name.startsWith(active)) ?? titles[index]
     if (title === undefined || !title.includes(marker)) {
       throw new Error(`cannot read the profile of window "${active}" - quit the browser yourself and drop --restart`)
