@@ -8,7 +8,7 @@ const profile = (dir: string, name: string, given: string): Profile =>
 const profiles = [
   profile('Default', 'fullstackoptimization.com', 'franz'),
   profile('Profile 2', 'Franz', 'Franz'),
-  profile('Profile 9', 'oe24.at', 'Franz'),
+  profile('Profile 9', 'example.com', 'Franz'),
   profile('Profile 8', 'fullstackoptimization.com', 'Arti')
 ]
 
