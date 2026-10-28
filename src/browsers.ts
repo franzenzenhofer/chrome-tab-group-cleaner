@@ -17,7 +17,7 @@ export const BROWSERS: Browser[] = [
   {
     id: 'chrome',
     name: 'Google Chrome',
-    process: { darwin: 'Google Chrome', linux: 'chrome' },
+    process: { darwin: 'Google Chrome', linux: 'chrome', win32: 'chrome.exe' },
     userData: {
       darwin: join(homedir(), 'Library/Application Support/Google/Chrome'),
       linux: join(homedir(), '.config/google-chrome'),
@@ -27,7 +27,7 @@ export const BROWSERS: Browser[] = [
   {
     id: 'chromium',
     name: 'Chromium',
-    process: { darwin: 'Chromium', linux: 'chromium' },
+    process: { darwin: 'Chromium', linux: 'chromium', win32: 'chrome.exe' },
     userData: {
       darwin: join(homedir(), 'Library/Application Support/Chromium'),
       linux: join(homedir(), '.config/chromium'),
@@ -37,7 +37,7 @@ export const BROWSERS: Browser[] = [
   {
     id: 'brave',
     name: 'Brave Browser',
-    process: { darwin: 'Brave Browser', linux: 'brave' },
+    process: { darwin: 'Brave Browser', linux: 'brave', win32: 'brave.exe' },
     userData: {
       darwin: join(homedir(), 'Library/Application Support/BraveSoftware/Brave-Browser'),
       linux: join(homedir(), '.config/BraveSoftware/Brave-Browser'),
@@ -47,7 +47,7 @@ export const BROWSERS: Browser[] = [
   {
     id: 'edge',
     name: 'Microsoft Edge',
-    process: { darwin: 'Microsoft Edge', linux: 'msedge' },
+    process: { darwin: 'Microsoft Edge', linux: 'msedge', win32: 'msedge.exe' },
     userData: {
       darwin: join(homedir(), 'Library/Application Support/Microsoft Edge'),
       linux: join(homedir(), '.config/microsoft-edge'),
@@ -73,6 +73,10 @@ export function userDataDir (browser: Browser, override?: string): string {
 export function isRunning (browser: Browser): boolean {
   const name = browser.process[process.platform]
   if (!name) throw new Error(`cannot check for a running ${browser.name} on ${process.platform}`)
+  if (process.platform === 'win32') {
+    const out = execFileSync('tasklist', ['/FI', `IMAGENAME eq ${name}`, '/FO', 'CSV'], { stdio: 'pipe' }).toString()
+    return out.toLowerCase().includes(name.toLowerCase())
+  }
   try {
     execFileSync('pgrep', ['-x', name], { stdio: 'pipe' })
     return true
